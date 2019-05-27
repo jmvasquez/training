@@ -15,7 +15,7 @@ func main() {
 	initStructs()
 
 	//URL example: http://localhost:8000/?usd
-	http.HandleFunc("/", getBestPrice)
+	http.HandleFunc("/training", getBestPrice)
 
 	//serve endpoints
 	err := http.ListenAndServe(":8000", nil)
