@@ -35,7 +35,6 @@ func cleanPrices(pc *Price, pv *Price, currency string) {
 
 func (f *PriceFinder) findBestPrices(currency string, cp chan Price) {
 	prices := make(chan Price, len(f.Banks) /*+len(f.Brokers)*/)
-	defer close(prices)
 	g, _ := errgroup.WithContext(context.Background())
 
 	//asi estaba antes
@@ -47,20 +46,21 @@ func (f *PriceFinder) findBestPrices(currency string, cp chan Price) {
 	// 	g.Go(p.getPrice(currency, prices))
 	// }
 	for _, j := range f.Banks {
+		j := j
 		g.Go(j.getPrice(currency, prices))
 	}
-	if err := g.Wait; err != nil {
-		close(prices)
+	if err := g.Wait(); err != nil {
 		fmt.Printf("ERROR: %v", err)
 		return
 	}
+	close(prices)
 
 	if len(prices) > 0 {
 		pc := <-prices
 		pv := pc
 		for p := range prices {
 			if currency == "usd" {
-				if p.DollarC < pc.DollarC {
+				if p.DollarC < pc.DollarC || pc.DollarC == 0 {
 					pc = p
 				}
 				if p.DollarV > pc.DollarV {
@@ -80,8 +80,8 @@ func (f *PriceFinder) findBestPrices(currency string, cp chan Price) {
 		fmt.Printf("VENTA: %v", pv)
 		cp <- pc
 		cp <- pv
-		close(prices)
 	}
+	close(cp)
 }
 
 func getBestPrice(w http.ResponseWriter, r *http.Request) {
@@ -101,10 +101,10 @@ func getBestPrice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cp := make(chan Price, 2)
-	defer close(cp)
-	go func() {
-		pfinder.findBestPrices(currency, cp)
-	}()
+	go pfinder.findBestPrices(currency, cp)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
 	select {
 	case res := <-cp:
@@ -118,8 +118,4 @@ func getBestPrice(w http.ResponseWriter, r *http.Request) {
 		jcentral, _ := json.Marshal(pfinder.Central.Price)
 		w.Write(jcentral)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
 }

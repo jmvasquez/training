@@ -142,6 +142,9 @@ func initStructs() {
 	}
 
 	//PriceFinder initialization   SOLE
+	// the idea of pricefinder is to contains the variables
+	// and implement the methods that uses those variables
+	// instead of using the global variables
 	pfinder.Banks = banks
 	pfinder.Brokers = brokers
 	pfinder.Central = central
