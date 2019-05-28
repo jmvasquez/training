@@ -29,7 +29,6 @@ type Broker struct {
 type PriceFinder struct {
 	Providers []PriceProvider
 	Central   Bank
-	Prices    chan Price
 }
 
 //PriceProvider interface that will calculate base on banks and brokers
