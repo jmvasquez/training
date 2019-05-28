@@ -6,79 +6,80 @@ import (
 	"strings"
 )
 
+//Price struct with currencies values
 type Price struct {
 	Name    string  `json:"provider,omitempty"`
-	DollarC float64 `json:"dollarC,omitempty"`
-	DollarV float64 `json:"dollarV,omitempty"`
-	EuroC   float64 `json:"euroC,omitempty"`
-	EuroV   float64 `json:"euroV,omitempty"`
+	DollarC float64 `json:"dollar compra,omitempty"`
+	DollarV float64 `json:"dollar venta,omitempty"`
+	EuroC   float64 `json:"euro compra,omitempty"`
+	EuroV   float64 `json:"euro venta,omitempty"`
 }
 
-type Central struct {
-	Price
-}
-
+//Bank struct
 type Bank struct {
 	Price
 }
 
+//Broker struct
 type Broker struct {
 	Price
 }
 
+//PriceFinder struct
 type PriceFinder struct {
-	Brokers []Broker
-	Banks   []Bank
-	Central Central
-	//BankSource string
-	Prices chan Price
+	Providers []PriceProvider
+	Central   Bank
+	Prices    chan Price
 }
 
+//PriceProvider interface that will calculate base on banks and brokers
 type PriceProvider interface {
-	getPrice(currency string, prices chan Price) func() error
+	getPrice(currency string, prices chan Price)
 }
 
-func (b *Broker) getPrice(currency string, prices chan Price) func() error {
+func getAllPrices(p PriceProvider, currency string, prices chan Price) func() error {
 	return func() error {
-		b.calculatePrices(banks)
-		price := Price{}
-
-		if strings.ToLower(currency) == "usd" {
-			price.DollarC = b.Price.DollarC
-			price.DollarV = b.Price.DollarV
-			price.Name = b.Price.Name
-		}
-		if strings.ToLower(currency) == "euro" {
-			price.EuroC = b.Price.EuroC
-			price.EuroV = b.Price.EuroV
-			price.Name = b.Price.Name
-		}
-		prices <- price //Ver si devolver Price o con el channel alcanza
+		p.getPrice(currency, prices)
 		return nil
 	}
 }
 
-func (b *Bank) getPrice(currency string, prices chan Price) func() error {
-	return func() error {
-		price := Price{}
-		if strings.ToLower(currency) == "usd" {
-			price.DollarC = b.Price.DollarC
-			price.DollarV = b.Price.DollarV
-			price.Name = b.Price.Name
-		}
-		if strings.ToLower(currency) == "euro" {
-			price.EuroC = b.Price.EuroC
-			price.EuroV = b.Price.EuroV
-			price.Name = b.Price.Name
-		}
-		prices <- price //Ver si devolver Price o con el channel alcanza
-		return nil
+func (b Broker) getPrice(currency string, prices chan Price) {
+	b.calculatePrices(banks, pfinder.Central)
+	price := Price{}
+
+	if strings.ToLower(currency) == "usd" {
+		price.DollarC = b.Price.DollarC
+		price.DollarV = b.Price.DollarV
+		price.Name = b.Price.Name
 	}
+	if strings.ToLower(currency) == "euro" {
+		price.EuroC = b.Price.EuroC
+		price.EuroV = b.Price.EuroV
+		price.Name = b.Price.Name
+	}
+	prices <- price
 }
 
-func (b *Broker) calculatePrices(others []Bank) {
+func (b Bank) getPrice(currency string, prices chan Price) {
+	price := Price{}
+	if strings.ToLower(currency) == "usd" {
+		price.DollarC = b.Price.DollarC
+		price.DollarV = b.Price.DollarV
+		price.Name = b.Price.Name
+	}
+	if strings.ToLower(currency) == "euro" {
+		price.EuroC = b.Price.EuroC
+		price.EuroV = b.Price.EuroV
+		price.Name = b.Price.Name
+	}
+	prices <- price
+}
+
+func (b *Broker) calculatePrices(others []Bank, central Bank) {
 	var minDc, maxDc, minDv, maxDv, minEc, maxEc, minEv, maxEv float64
 
+	minDc, maxDc, minDv, maxDv, minEc, maxEc, minEv, maxEv = getValues(central, minDc, maxDc, minDv, maxDv, minEc, maxEc, minEv, maxEv)
 	for _, bank := range others {
 		minDc, maxDc, minDv, maxDv, minEc, maxEc, minEv, maxEv = getValues(bank, minDc, maxDc, minDv, maxDv, minEc, maxEc, minEv, maxEv)
 	}
@@ -120,6 +121,9 @@ func getValues(bank Bank, minDc float64, maxDc float64, minDv float64, maxDv flo
 }
 
 func initStructs() {
+
+	var brokers []Broker
+
 	var filename = "resources/banks.csv"
 
 	//Loads banks data from CSV file
@@ -133,7 +137,7 @@ func initStructs() {
 	brokers = append(brokers, balanz, bullExchange)
 
 	//Initialization of Central Bank
-	central.Price = Price{
+	pfinder.Central.Price = Price{
 		Name:    "Banco Central",
 		DollarC: 45.90,
 		DollarV: 46.10,
@@ -141,11 +145,10 @@ func initStructs() {
 		EuroV:   51.30,
 	}
 
-	//PriceFinder initialization   SOLE
-	// the idea of pricefinder is to contains the variables
-	// and implement the methods that uses those variables
-	// instead of using the global variables
-	pfinder.Banks = banks
-	pfinder.Brokers = brokers
-	pfinder.Central = central
+	for _, bank := range banks {
+		pfinder.Providers = append(pfinder.Providers, bank)
+	}
+	for _, broker := range brokers {
+		pfinder.Providers = append(pfinder.Providers, broker)
+	}
 }

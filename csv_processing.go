@@ -26,10 +26,10 @@ func loadBanksData(filename string, data *[]Bank) {
 	var unit Bank
 	for _, line := range lines {
 		name := line[0]
-		dollarC, err := strconv.ParseFloat(line[1], 64)
-		dollarV, err := strconv.ParseFloat(line[2], 64)
-		euroC, err := strconv.ParseFloat(line[3], 64)
-		euroV, err := strconv.ParseFloat(line[4], 64)
+		dollarV, err := strconv.ParseFloat(line[1], 64)
+		dollarC, err := strconv.ParseFloat(line[2], 64)
+		euroV, err := strconv.ParseFloat(line[3], 64)
+		euroC, err := strconv.ParseFloat(line[4], 64)
 		if err != nil {
 			log.Fatalf("Fail to parse %s", err)
 		}

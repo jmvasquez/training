@@ -6,15 +6,13 @@ import (
 )
 
 var banks []Bank
-var brokers []Broker
-var central Central
 var pfinder PriceFinder
 
 func main() {
 
 	initStructs()
 
-	//URL example: http://localhost:8000/?usd
+	//URL example: http://localhost:8000/training?usd
 	http.HandleFunc("/training", getBestPrice)
 
 	//serve endpoints
