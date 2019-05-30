@@ -34,21 +34,14 @@ func cleanPrices(pc *Price, pv *Price, currency string) {
 }
 
 func (f *PriceFinder) findBestPrices(currency string, cp chan Price) {
-	prices := make(chan Price, len(f.Banks) /*+len(f.Brokers)*/)
+	prices := make(chan Price, len(f.Providers))
 	g, _ := errgroup.WithContext(context.Background())
 
-	//asi estaba antes
-	// for _, p := range append(f.Brokers, f.banks...) {
-	// 	g.Go(p.getPrice(currency, prices))
-	// }
-
-	// for _, p := range f.Brokers {
-	// 	g.Go(p.getPrice(currency, prices))
-	// }
-	for _, j := range f.Banks {
-		j := j
-		g.Go(j.getPrice(currency, prices))
+	for _, p := range f.Providers {
+		p := p
+		g.Go(getAllPrices(p, currency, prices))
 	}
+
 	if err := g.Wait(); err != nil {
 		fmt.Printf("ERROR: %v", err)
 		return
@@ -56,30 +49,29 @@ func (f *PriceFinder) findBestPrices(currency string, cp chan Price) {
 	close(prices)
 
 	if len(prices) > 0 {
-		pc := <-prices
-		pv := pc
+		pc := Price{}
+		pv := Price{}
 		for p := range prices {
 			if currency == "usd" {
-				if p.DollarC < pc.DollarC || pc.DollarC == 0 {
+				if p.DollarC < pc.DollarC || pc.DollarC == 0.0 {
 					pc = p
 				}
-				if p.DollarV > pc.DollarV {
+				if p.DollarV > pv.DollarV || pv.DollarC == 0.0 {
 					pv = p
 				}
 			} else {
-				if p.EuroC < pc.EuroC {
+				if p.EuroC < pc.EuroC || pc.EuroC == 0.0 {
 					pc = p
 				}
-				if p.EuroV > pc.EuroV {
+				if p.EuroV > pv.EuroV || pv.EuroC == 0.0 {
 					pv = p
 				}
 			}
 		}
 
-		fmt.Printf("COMPRA: %v", pc)
-		fmt.Printf("VENTA: %v", pv)
-		cp <- pc
+		cleanPrices(&pc, &pv, currency)
 		cp <- pv
+		cp <- pc
 	}
 	close(cp)
 }
@@ -106,16 +98,17 @@ func getBestPrice(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
+	var results []Price
 	select {
 	case res := <-cp:
-		jres, _ := json.Marshal(res)
-		w.Write(jres)
+		results = append(results, res)
 		for p := range cp {
-			jres, _ = json.Marshal(p)
-			w.Write(jres)
+			results = append(results, p)
 		}
-	case <-time.After(5 * time.Second):
-		jcentral, _ := json.Marshal(pfinder.Central.Price)
+		jres, _ := json.Marshal(results)
+		w.Write(jres)
+	case <-time.After(5 * time.Millisecond):
+		jcentral, _ := json.Marshal(pfinder.Central)
 		w.Write(jcentral)
 	}
 }
